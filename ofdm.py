@@ -232,3 +232,4 @@ print ("Obtained Bit error rate: ", np.sum(abs(bits-bits_est))/len(bits))
 # plt.show()
 plt.savefig('outputConstellation.png', bbox_inches='tight')
 plt.close()
+

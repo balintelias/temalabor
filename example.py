@@ -30,6 +30,8 @@ print ("pilotCarriers: %s" % pilotCarriers)
 print ("dataCarriers:  %s" % dataCarriers)
 plt.plot(pilotCarriers, np.zeros_like(pilotCarriers), 'bo', label='pilot')
 plt.plot(dataCarriers, np.zeros_like(dataCarriers), 'ro', label='data')
+plt.legend()
+plt.show()
 
 mu = 4 # bits per symbol (i.e. 16QAM)
 payloadBits_per_OFDM = len(dataCarriers)*mu  # number of payload bits per OFDM symbol
