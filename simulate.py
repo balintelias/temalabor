@@ -38,7 +38,7 @@ def channel(signal):
     signal_power = np.mean(abs(convolved**2))
     sigma2 = signal_power * 10**(-SNRdb/10)  # calculate noise power based on signal power and SNR
     
-    print ("RX Signal power: %.4f. Noise power: %.4f" % (signal_power, sigma2))
+    # print ("RX Signal power: %.4f. Noise power: %.4f" % (signal_power, sigma2))
     
     # Generate complex noise with given variance
     noise = np.sqrt(sigma2/2) * (np.random.randn(*convolved.shape)+1j*np.random.randn(*convolved.shape))
@@ -117,9 +117,9 @@ for x in range(45):
     # data carriers are all remaining carriers
     dataCarriers = np.delete(allCarriers, pilotCarriers)
 
-    print ("allCarriers:   %s" % allCarriers)
-    print ("pilotCarriers: %s" % pilotCarriers)
-    print ("dataCarriers:  %s" % dataCarriers)
+    # print ("allCarriers:   %s" % allCarriers)
+    # print ("pilotCarriers: %s" % pilotCarriers)
+    # print ("dataCarriers:  %s" % dataCarriers)
     plt.plot(pilotCarriers, np.zeros_like(pilotCarriers), 'bo', label='pilot')
     plt.plot(dataCarriers, np.zeros_like(dataCarriers), 'ro', label='data')
     plt.legend()
@@ -166,28 +166,28 @@ for x in range(45):
     SNRdb = x-20  # signal to noise-ratio in dB at the receiver 
 
     bits = np.random.binomial(n=1, p=0.5, size=(payloadBits_per_OFDM, ))
-    print ("Bits count: ", len(bits))
-    print ("First 20 bits: ", bits[:20])
-    print ("Mean of bits (should be around 0.5): ", np.mean(bits))
+    # print ("Bits count: ", len(bits))
+    # print ("First 20 bits: ", bits[:20])
+    # print ("Mean of bits (should be around 0.5): ", np.mean(bits))
 
 
     bits_SP = SP(bits)
-    print ("First 5 bit groups")
-    print (bits_SP[:5,:])
+    # print ("First 5 bit groups")
+    # print (bits_SP[:5,:])
 
 
     QAM = Mapping(bits_SP)
-    print ("First 5 QAM symbols and bits:")
-    print (bits_SP[:5,:])
-    print (QAM[:5])
+    # print ("First 5 QAM symbols and bits:")
+    # print (bits_SP[:5,:])
+    # print (QAM[:5])
 
 
     OFDM_data = OFDM_symbol(QAM)
-    print ("Number of OFDM carriers in frequency domain: ", len(OFDM_data))
+    # print ("Number of OFDM carriers in frequency domain: ", len(OFDM_data))
 
 
     OFDM_time = IDFT(OFDM_data)
-    print ("Number of OFDM samples in time-domain before CP: ", len(OFDM_time))
+    # print ("Number of OFDM samples in time-domain before CP: ", len(OFDM_time))
 
 
     OFDM_TX = OFDM_time
