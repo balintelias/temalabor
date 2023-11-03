@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import special
 
 # Az infokommunikáció tárgy tudásait felhasználva:
 # Egyszerű OFDM rendszer szimulációja
@@ -96,9 +97,20 @@ def Demapping(QAM):
 def PS(bits):
     return bits.reshape((-1,))
 
-BER = []
+def theoreticalBER(EbNo):
+    return 0.5 * special.erfc(np.sqrt(EbNo))
 
-for x in range(45):
+def calculateBITno(theoreticalBER):
+    return pow(10, -np.log10(theoreticalBER)+2)
+
+"""
+main starts here:
+"""
+
+simulatedBER = []
+
+for x in range(10):
+    bitsToSimulate = calculateBITno(theoreticalBER(x))
 
     K = 128 # number of OFDM subcarriers
 
@@ -163,83 +175,96 @@ for x in range(45):
     plt.savefig('channelResponse.png', bbox_inches='tight')
     plt.close()
 
-    SNRdb = x-20  # signal to noise-ratio in dB at the receiver 
+    SNRdb = x  # signal to noise-ratio in dB at the receiver
 
-    bits = np.random.binomial(n=1, p=0.5, size=(payloadBits_per_OFDM, ))
-    # print ("Bits count: ", len(bits))
-    # print ("First 20 bits: ", bits[:20])
-    # print ("Mean of bits (should be around 0.5): ", np.mean(bits))
+    # ITT KEZDŐDIK AZ ÁTVITEL SZIMULÁCIÓJA
+    numberOfSymbols = bitsToSimulate / payloadBits_per_OFDM + 1
+    for(y) in range(numberOfSymbols.astype(np.int64)):
+        pairs = []
 
-
-    bits_SP = SP(bits)
-    # print ("First 5 bit groups")
-    # print (bits_SP[:5,:])
-
-
-    QAM = Mapping(bits_SP)
-    # print ("First 5 QAM symbols and bits:")
-    # print (bits_SP[:5,:])
-    # print (QAM[:5])
+        bits = np.random.binomial(n=1, p=0.5, size=(payloadBits_per_OFDM, ))
+        # print ("Bits count: ", len(bits))
+        # print ("First 20 bits: ", bits[:20])
+        # print ("Mean of bits (should be around 0.5): ", np.mean(bits))
 
 
-    OFDM_data = OFDM_symbol(QAM)
-    # print ("Number of OFDM carriers in frequency domain: ", len(OFDM_data))
+        bits_SP = SP(bits)
+        # print ("First 5 bit groups")
+        # print (bits_SP[:5,:])
 
 
-    OFDM_time = IDFT(OFDM_data)
-    # print ("Number of OFDM samples in time-domain before CP: ", len(OFDM_time))
+        QAM = Mapping(bits_SP)
+        # print ("First 5 QAM symbols and bits:")
+        # print (bits_SP[:5,:])
+        # print (QAM[:5])
 
 
-    OFDM_TX = OFDM_time
-    OFDM_RX = channel(OFDM_TX)
-    plt.figure(figsize=(8,2))
-    plt.plot(abs(OFDM_TX), label='TX signal')
-    plt.plot(abs(OFDM_RX), label='RX signal')
-    plt.legend(fontsize=10)
-    plt.xlabel('Time'); plt.ylabel('$|x(t)|$');
-    plt.grid(True);
-
-# plt.show()
-    plt.savefig('rxtx.png', bbox_inches='tight')
-    plt.close()
+        OFDM_data = OFDM_symbol(QAM)
+        # print ("Number of OFDM carriers in frequency domain: ", len(OFDM_data))
 
 
-
-    OFDM_demod = DFT(OFDM_RX)
-
-
-    Hest = channelEstimate(OFDM_demod)
+        OFDM_time = IDFT(OFDM_data)
+        # print ("Number of OFDM samples in time-domain before CP: ", len(OFDM_time))
 
 
-    equalized_Hest = equalize(OFDM_demod, Hest)
+        OFDM_TX = OFDM_time
+        OFDM_RX = channel(OFDM_TX)
+        plt.figure(figsize=(8,2))
+        plt.plot(abs(OFDM_TX), label='TX signal')
+        plt.plot(abs(OFDM_RX), label='RX signal')
+        plt.legend(fontsize=10)
+        plt.xlabel('Time'); plt.ylabel('$|x(t)|$');
+        plt.grid(True);
+
+        # plt.show()
+        plt.savefig('rxtx.png', bbox_inches='tight')
+        plt.close()
 
 
-    QAM_est = get_payload(equalized_Hest)
-    plt.plot(QAM_est.real, QAM_est.imag, 'bo');
+
+        OFDM_demod = DFT(OFDM_RX)
+
+        # This 2 lines should fix the constellation diagram
+        Hest = channelEstimate(OFDM_demod)
 
 
-    # plt.show()
-    plt.savefig('receivedConstellation.png', bbox_inches='tight')
-    plt.close()
-
-    PS_est, hardDecision = Demapping(QAM_est)
-    for qam, hard in zip(QAM_est, hardDecision):
-        plt.plot([qam.real, hard.real], [qam.imag, hard.imag], 'b-o');
-        plt.plot(hardDecision.real, hardDecision.imag, 'ro')
+        equalized_Hest = equalize(OFDM_demod, Hest)
 
 
-    bits_est = PS(PS_est)
+        QAM_est = get_payload(OFDM_demod)
+        plt.plot(QAM_est.real, QAM_est.imag, 'bo');
 
-    print ("Obtained Bit error rate: ", np.sum(abs(bits-bits_est))/len(bits))
 
-    # plt.show()
-    plt.savefig('outputConstellation.png', bbox_inches='tight')
-    plt.close()
+        # plt.show()
+        plt.savefig('receivedConstellation.png', bbox_inches='tight')
+        plt.close()
 
-    value = (SNRdb, np.sum(abs(bits-bits_est))/len(bits))
-    BER.append(value)
+        PS_est, hardDecision = Demapping(QAM_est)
+        for qam, hard in zip(QAM_est, hardDecision):
+            plt.plot([qam.real, hard.real], [qam.imag, hard.imag], 'b-o');
+            plt.plot(hardDecision.real, hardDecision.imag, 'ro')
 
-print(BER)
-plt.plot(*zip(*BER))
-plt.show()
+
+        bits_est = PS(PS_est)
+
+        print ("SNR: ", x, "Symbols:", y, "/", numberOfSymbols,  " Obtained Bit error rate: ", np.sum(abs(bits-bits_est))/len(bits))
+
+        # plt.show()
+        plt.savefig('outputConstellation.png', bbox_inches='tight')
+        plt.close()
+        # TODO: Valahogy ki kell gondolni a BER tárolását
+        # TODO: szimuláció meghalt
+
+        pair = (SNRdb, np.sum(abs(bits-bits_est))/len(bits))
+        pairs.append(pair)
+    BERs = [item[1] for item in pairs]
+    meanBER = np.mean(BERs)
+    simulatedBER.append((x, meanBER))
+    print("SNR: ", x,  " Mean BER: ", meanBER)
+
+print(simulatedBER)
+plt.plot(*zip(*simulatedBER))
+#plt.show()
+plt.savefig('simulatedBER.png', bbox_inches='tight')
+plt.close()
 
