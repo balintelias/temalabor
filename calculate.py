@@ -4,9 +4,10 @@
 import numpy as np
 from scipy import special
 import matplotlib.pyplot as plt
+import math
 
 def BER(EbNo):
-    return 0.5 * special.erfc(np.sqrt(EbNo))
+    return 0.5 * math.erfc(math.sqrt(EbNo))
 
 def bitNO(BER):
     return pow(10, -np.log10(BER)+2)
@@ -17,7 +18,7 @@ for x in range(10):
 
 print(array)
 x = np.linspace(0, 10, 100)
-plt.plot(x, BER(x))
+plt.plot(x, BER(x.astype(int)))
 plt.xlabel('$SNR$')
 plt.ylabel('$BER(SNR)$')
 plt.yscale('log')
