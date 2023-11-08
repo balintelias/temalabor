@@ -186,8 +186,9 @@ for x in range(10):
 
     # ITT KEZDŐDIK AZ ÁTVITEL SZIMULÁCIÓJA
     numberOfSymbols = bitsToSimulate / payloadBits_per_OFDM + 1
+    pairs = []
     for(y) in range(numberOfSymbols.astype(np.int64)):
-        pairs = []
+        
 
         bits = np.random.binomial(n=1, p=0.5, size=(payloadBits_per_OFDM, ))
         # print ("Bits count: ", len(bits))
@@ -261,7 +262,7 @@ for x in range(10):
 
         bits_est = PS(PS_est)
 
-        # print ("SNR: ", x, "Symbols:", y, "/", numberOfSymbols,  " Obtained Bit error rate: ", np.sum(abs(bits-bits_est))/len(bits))
+        print ("SNR: ", x, "Symbols:", y, "/", numberOfSymbols,  " Obtained Bit error rate: ", np.sum(abs(bits-bits_est))/len(bits))
 
         # plt.show()
         """
@@ -273,12 +274,16 @@ for x in range(10):
 
         pair = (SNRdb, np.sum(abs(bits-bits_est))/len(bits))
         pairs.append(pair)
-    BERs = [item[1] for item in pairs]
+    # print(pairs)
+    BERs = []
+    for item in pairs:
+        BERs.append(item[1])
+    # print(BERs)
     meanBER = np.mean(BERs)
     simulatedBER.append((x, meanBER))
     print("SNR: ", x,  " Mean BER: ", meanBER)
 
-print(simulatedBER)
+# print(simulatedBER)
 plt.plot(*zip(*simulatedBER))
 #plt.show()
 plt.savefig('simulatedBER.png', bbox_inches='tight')
