@@ -115,7 +115,7 @@ for x in range(10):
     K = 128 # number of OFDM subcarriers
 
 
-    P = 16 # number of pilot carriers per OFDM block
+    P = 1 # number of pilot carriers per OFDM block
     pilotValue = 1+1j # The known value each pilot transmits
 
     allCarriers = np.arange(K)  # indices of all subcarriers ([0, 1, ... K-1])
