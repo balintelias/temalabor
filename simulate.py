@@ -101,7 +101,7 @@ def theoreticalBER(EbNo):
     return 0.5 * special.erfc(np.sqrt(EbNo))
 
 def calculateBITno(theoreticalBER):
-    return pow(10, -np.log10(theoreticalBER)+2)
+    return pow(10, -np.log10(theoreticalBER) + 1)
 
 """
 main starts here:
@@ -132,13 +132,14 @@ for x in range(10):
     # print ("allCarriers:   %s" % allCarriers)
     # print ("pilotCarriers: %s" % pilotCarriers)
     # print ("dataCarriers:  %s" % dataCarriers)
+    """
     plt.plot(pilotCarriers, np.zeros_like(pilotCarriers), 'bo', label='pilot')
     plt.plot(dataCarriers, np.zeros_like(dataCarriers), 'ro', label='data')
     plt.legend()
     # plt.show()
     plt.savefig('carriers.png', bbox_inches='tight')
     plt.close()
-
+    """
     mu = 2 # bits per symbol (i.e. 4QAM / QPSK)
     payloadBits_per_OFDM = len(dataCarriers)*mu  # number of payload bits per OFDM symbol
 
@@ -152,28 +153,34 @@ for x in range(10):
         for b0 in [0, 1]:
             B = (b1, b0)
             Q = mapping_table[B]
+            """
             plt.plot(Q.real, Q.imag, 'bo')
             plt.text(Q.real, Q.imag+0.2, "".join(str(x) for x in B), ha='center')
             plt.xlabel('Imaginary Part (Q)')
             plt.ylabel('Real Part (I)')
             plt.title('QPSK or 4QAM Constellation')
+            """
     # plt.show()
+    """
     plt.savefig('constellation.png', bbox_inches='tight')
     plt.close()
+    """
 
 
 
     demapping_table = {v : k for k, v in mapping_table.items()}
 
-    channelResponse = np.array([0.1])  # the impulse response of the wireless channel
+    channelResponse = np.array([0.5])  # the impulse response of the wireless channel
     """
     Frekvenciafüggetlen átvitellel számolok
     """
     H_exact = np.fft.fft(channelResponse, K)
+    """
     plt.plot(allCarriers, abs(H_exact))
     # plt.show()
     plt.savefig('channelResponse.png', bbox_inches='tight')
     plt.close()
+    """
 
     SNRdb = x  # signal to noise-ratio in dB at the receiver
 
@@ -209,6 +216,7 @@ for x in range(10):
 
         OFDM_TX = OFDM_time
         OFDM_RX = channel(OFDM_TX)
+        """
         plt.figure(figsize=(8,2))
         plt.plot(abs(OFDM_TX), label='TX signal')
         plt.plot(abs(OFDM_RX), label='RX signal')
@@ -219,6 +227,7 @@ for x in range(10):
         # plt.show()
         plt.savefig('rxtx.png', bbox_inches='tight')
         plt.close()
+        """
 
 
 
@@ -232,26 +241,33 @@ for x in range(10):
 
 
         QAM_est = get_payload(OFDM_demod)
+        """
         plt.plot(QAM_est.real, QAM_est.imag, 'bo');
+        """
 
 
         # plt.show()
+        """
         plt.savefig('receivedConstellation.png', bbox_inches='tight')
         plt.close()
+        """
 
         PS_est, hardDecision = Demapping(QAM_est)
+        """
         for qam, hard in zip(QAM_est, hardDecision):
             plt.plot([qam.real, hard.real], [qam.imag, hard.imag], 'b-o');
             plt.plot(hardDecision.real, hardDecision.imag, 'ro')
-
+        """
 
         bits_est = PS(PS_est)
 
-        print ("SNR: ", x, "Symbols:", y, "/", numberOfSymbols,  " Obtained Bit error rate: ", np.sum(abs(bits-bits_est))/len(bits))
+        # print ("SNR: ", x, "Symbols:", y, "/", numberOfSymbols,  " Obtained Bit error rate: ", np.sum(abs(bits-bits_est))/len(bits))
 
         # plt.show()
+        """
         plt.savefig('outputConstellation.png', bbox_inches='tight')
         plt.close()
+        """
         # TODO: Valahogy ki kell gondolni a BER tárolását
         # TODO: szimuláció meghalt
 
