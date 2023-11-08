@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import math
 
 def BER(EbNo):
-    return 0.5 * math.erfc(math.sqrt(EbNo))
+    return 0.5 * math.erfc(math.sqrt(pow(10, EbNo/10)))
 
 def bitNO(BER):
     return pow(10, -np.log10(BER)+2)
@@ -17,9 +17,12 @@ for x in range(10):
     array.append((x, BER(x), bitNO(BER(x))))
 
 print(array)
-x = np.linspace(0, 10, 100)
-plt.plot(x, BER(x.astype(int)))
+x = np.array([0,1,2,3,4,5,6,7,8,9])
+BERs = []
+for number in x:
+    BERs.append(BER(number))
+# plt.plot(x, BERs)
 plt.xlabel('$SNR$')
 plt.ylabel('$BER(SNR)$')
-plt.yscale('log')
+plt.semilogy(x, BERs)
 plt.show()

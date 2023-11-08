@@ -35,6 +35,7 @@ def IDFT(OFDM_data):
     return np.fft.ifft(OFDM_data)
 
 def channel(signal):
+    # TODO:
     convolved = np.convolve(signal, channelResponse)
     signal_power = np.mean(abs(convolved**2))
     sigma2 = signal_power * 10**(-SNRdb/10)  # calculate noise power based on signal power and SNR
@@ -42,7 +43,9 @@ def channel(signal):
     # print ("RX Signal power: %.4f. Noise power: %.4f" % (signal_power, sigma2))
     
     # Generate complex noise with given variance
-    noise = np.sqrt(sigma2/2) * (np.random.randn(*convolved.shape)+1j*np.random.randn(*convolved.shape))
+    noise = np.sqrt(sigma2)/2 * (np.random.randn(*convolved.shape)+1j*np.random.randn(*convolved.shape))
+    # Itt kellett kivenni a /2-t a gyökből
+    # TODO: ellenőrizni a jel és a zaj teljesítményét
     return convolved + noise
 
 def DFT(OFDM_RX):
@@ -101,7 +104,7 @@ def theoreticalBER(EbNo):
     return 0.5 * special.erfc(np.sqrt(EbNo))
 
 def calculateBITno(theoreticalBER):
-    return pow(10, -np.log10(theoreticalBER) + 1)
+    return pow(10, -np.log10(theoreticalBER) + 2)
 
 """
 main starts here:
@@ -170,7 +173,7 @@ for x in range(10):
 
     demapping_table = {v : k for k, v in mapping_table.items()}
 
-    channelResponse = np.array([0.5])  # the impulse response of the wireless channel
+    channelResponse = np.array([1])  # the impulse response of the wireless channel
     """
     Frekvenciafüggetlen átvitellel számolok
     """
@@ -235,10 +238,10 @@ for x in range(10):
         OFDM_demod = DFT(OFDM_RX)
 
         # This 2 lines should fix the constellation diagram
-        Hest = channelEstimate(OFDM_demod)
+        # Hest = channelEstimate(OFDM_demod)
 
 
-        equalized_Hest = equalize(OFDM_demod, Hest)
+        # equalized_Hest = equalize(OFDM_demod, Hest)
 
 
         QAM_est = get_payload(OFDM_demod)
@@ -283,9 +286,13 @@ for x in range(10):
     simulatedBER.append((x, meanBER))
     print("SNR: ", x,  " Mean BER: ", meanBER)
 
-# print(simulatedBER)
+print(simulatedBER)
 plt.plot(*zip(*simulatedBER))
+plt.semilogy()
 #plt.show()
 plt.savefig('simulatedBER.png', bbox_inches='tight')
 plt.close()
 
+#TODO: újraírni 
+#TODO: tap-eket a channelbe (4 tapes FIR)
+#TODO: megnézni a BER-t
