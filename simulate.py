@@ -112,7 +112,7 @@ main starts here:
 
 simulatedBER = []
 
-for x in range(10):
+for x in range(11):
     bitsToSimulate = calculateBITno(theoreticalBER(x))
 
     K = 128 # number of OFDM subcarriers
