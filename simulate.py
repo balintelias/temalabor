@@ -62,15 +62,15 @@ def channelEstimate(OFDM_demod):
     Hest_phase = scipy.interpolate.interp1d(pilotCarriers, np.angle(Hest_at_pilots), kind='linear')(allCarriers)
     Hest = Hest_abs * np.exp(1j*Hest_phase)
     
-    plt.plot(allCarriers, abs(H_exact), label='Correct Channel')
-    plt.stem(pilotCarriers, abs(Hest_at_pilots), label='Pilot estimates')
-    plt.plot(allCarriers, abs(Hest), label='Estimated channel via interpolation')
-    plt.grid(True); plt.xlabel('Carrier index'); plt.ylabel('$|H(f)|$'); plt.legend(fontsize=10)
-    plt.ylim(0,2)
+    # plt.plot(allCarriers, abs(H_exact), label='Correct Channel')
+    # plt.stem(pilotCarriers, abs(Hest_at_pilots), label='Pilot estimates')
+    # plt.plot(allCarriers, abs(Hest), label='Estimated channel via interpolation')
+    # plt.grid(True); plt.xlabel('Carrier index'); plt.ylabel('$|H(f)|$'); plt.legend(fontsize=10)
+    # plt.ylim(0,2)
 
     # plt.show()
-    plt.savefig('estimatedChannel.png', bbox_inches='tight')
-    plt.close()
+    # plt.savefig('estimatedChannel.png', bbox_inches='tight')
+    # plt.close()
     
     return Hest
 
