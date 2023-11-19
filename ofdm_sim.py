@@ -2,11 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import special
 
-K = 128  # vivők száma
-P = 1  # 1 pilot vivő
-mu = 2  # 2 bit/szimbólum
-carrierNo = K - P
-
 
 def theoreticalBER(EbNo):
     return 0.5 * special.erfc(np.sqrt(EbNo))
@@ -50,7 +45,7 @@ def IFFT(symbols):
 # megadott teljesítményű addítív fehér Gauss-zajjal
 def channel(signal, SNRdB, channelResponse):
     # konvolúció
-    output_signal = np.convolve(signal, channelResponse)
+    output_signal = np.convolve(signal, channelResponse, mode="same")
     signal_power = np.mean(abs(output_signal**2))
     sigma2 = signal_power * 10 ** (-SNRdB / 10)  # zajteljesítmény
 
@@ -101,56 +96,88 @@ def PS(bits_parallel):
 # ber
 def calculate_BER(OFDM_demapped, bits):
     error = 0
-    for i in range(len(bits)):
-        if bits[i] != OFDM_demapped[i]:
+    OFDM_1D = np.concatenate(OFDM_demapped)
+    len1 = len(OFDM_1D)
+    len2 = len(bits)
+    array_sent = np.array(bits)
+    array_received = np.array(OFDM_1D)
+    for i in range(len(array_sent)):
+        if array_sent[i] != array_received[i]:
             error += 1
     return error / len(bits)
 
 
+K = 128  # vivők száma
+P = 0  # 1 pilot vivő
+mu = 2  # 2 bit/szimbólum
+carrierNo = K - P
+
 simulated_BER = []
 
-for x in range(11):
+for x in range(11):  # for simulation
+    # for x in range(6): # for testing
     SNRdB = x
     payloadBits_per_OFDM = mu * (K - P)
     bitsToSimulate = calculateBITno(theoreticalBER(SNRdB))
-    numberOfSymbols = bitsToSimulate / payloadBits_per_OFDM + 1
+    numberOfSymbols = int(bitsToSimulate / payloadBits_per_OFDM + 10)
+
+    # channelResponse = np.array([np.sqrt(0.6), np.sqrt(0.3), np.sqrt(0.1)]) # négyzetösszeg legyen
+    channelResponse = np.array([1])  # for testing
+
     pairs = []
-    # channelResponse = np.array([np.sqrt(0.6), np.sqrt(0.3), np.sqrt(0.1)])
-    # TODO: ezt a részt nem értem teljesen
-    channelResponse = np.array([1])
-    for symbol in range(int(numberOfSymbols)):
+    signal_time = []
+
+    # a generálást egészen addig amíg időtartományba nem transzformálunk, továbbra is for ciklussal
+    ofdm_time = []
+    bits_sum = []
+    for symbol in range(numberOfSymbols):
         bits = generateBITs(payloadBits_per_OFDM)
         bits_SP = SP(bits)
         symbols = mapping(bits_SP)
-        ofdm_time = IFFT(symbols)
-        ofdm_received = channel(ofdm_time, SNRdB, channelResponse)
-        ofdm_demod = FFT(ofdm_received)
-        demapped = demapping(ofdm_demod)
-        bits_received = PS(demapped)
-        calculated_BER = calculate_BER(bits_received, bits)
-        pairs.append((SNRdB, calculated_BER))
-        print(
-            "SNR: ",
-            x,
-            "Symbols:",
-            symbol,
-            "/",
-            numberOfSymbols,
-            " Obtained Bit error rate: ",
-            calculated_BER,
-        )
-
-    BERs = []
-    for item in pairs:
-        BERs.append(item[1])
-    # print(BERs)
-    meanBER = np.mean(BERs)
-    simulated_BER.append((x, meanBER))
-    print("SNR: ", x, " Mean BER: ", meanBER)
+        symbol_time = IFFT(symbols)
+        ofdm_time.extend(symbol_time)
+        bits_sum.extend(bits)
+    # ezzel megvan az összes szimbólum egyesített időfüggvénye
+    len_time = len(ofdm_time)
+    ofdm_received = channel(
+        ofdm_time, SNRdB, channelResponse
+    )  # ehhez nem kell nyúlni sztem
+    len_received = len(ofdm_received)
+    # ezután a vett jelet kell "szétvágni" szimbólumokra
+    received_symbols = ofdm_received.reshape((-1, K))  # vajon jó?
+    len_received_symbols = len(received_symbols)
+    # majd a szimbólumokat vissza kell transzformálni frekvenciatartományba
+    received_symbols_freq = [FFT(symbol) for symbol in received_symbols]
+    len_received_symbols_freq = len(received_symbols_freq)
+    # végül a szimbólumokat demodulálni kell
+    demapped = [demapping(symbol_freq) for symbol_freq in received_symbols_freq]
+    len_demapped = len(demapped)
+    # és a bitpárokat vissza kell alakítani bitekké
+    bits_received = [PS(demapped_symbol) for demapped_symbol in demapped]
+    calculated_BER = calculate_BER(bits_received, bits_sum)
+    print("SNR: ", x, " Obtained Bit error rate: ", calculated_BER)
+    simulated_BER.append((x, calculated_BER))
 
 print(simulated_BER)
 plt.plot(*zip(*simulated_BER))
 plt.semilogy()
 # plt.show()
-plt.savefig("simulatedBER2.png", bbox_inches="tight")
+plt.xlabel("SNR (in dB)")
+plt.ylabel("Bit Error Rate")
+plt.title("Bit Error Rate Simulation of an OFDM System with QPSK modulation")
+plt.grid(True, linestyle="--", linewidth=0.5, color="gray", alpha=0.5)
+plt.savefig("simulatedBER_sajat.png", bbox_inches="tight")
+
 plt.close()
+
+# TODO:
+# FIXME:
+
+# IMSC pontokért vektorizált mátrixos _izé_
+
+# TODO:
+# CP megírása:
+# CP hossza > h hossza (csatorna impulzusválasza)
+
+# TODO:
+# H ismeretében H inverzével csatornakompenzálás
