@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import special
 import math
+import csv
 
 
 def theoreticalBER(EbNodB):
@@ -9,7 +10,7 @@ def theoreticalBER(EbNodB):
 
 
 def calculateBITno(theoreticalBER):
-    return pow(10, -np.log10(theoreticalBER) + 2)
+    return pow(10, -np.log10(theoreticalBER) + 2.2)
 
 
 def calculateSymbolNo(bitNo, mu):
@@ -39,6 +40,7 @@ def mapping(bits_SP):
         (1, 1): +1 + 1j,
     }
     symbols = np.array([mapping_table[tuple(pair)] for pair in bits_SP])
+    # TODO: mindegyik x2 - 1 és akkor az amplitúdó
     return symbols
 
 
@@ -60,9 +62,6 @@ def addCP(signal_time, CP=10):
 
     for i in range(num_rows):
         prefix = np.array(signal_time[i, -CP:])
-        type1 = type(prefix)
-        type2 = type(signal_time[i])
-        type3 = type(signal_time_withCP)
         signal_time_withCP[i] = np.concatenate((prefix, signal_time[i]))
 
     return signal_time_withCP
@@ -80,12 +79,6 @@ def channel(signal, SNRdB, channelResponse):
     noise = noise_real + noise_imaginary
     # return output_signal
     return output_signal + noise
-
-def equalize(signal, channelResponse):
-    response_frequency = np.fft.fft(channelResponse)
-    inverse_response = np.fft.ifft(1 / response_frequency)
-    output_signal = np.convolve(signal, inverse_response, mode="same")
-    return output_signal
 
 
 def removeCP(signal_time_withCP, CP=10):
@@ -105,8 +98,27 @@ def FFT(signal_time):
         subarray = signal_time[i]  # Access each subarray
         fft_result = np.fft.fft(subarray)  # Apply FFT to the subarray
         fft_results[i] = fft_result
-    # signal_time = fft_results
     return fft_results
+
+def equalize(signal, channelResponse):
+    # ez így bénácska, de működik
+    shape = signal.shape
+    num_zeros = shape[1] - channelResponse.shape[0]
+    if num_zeros > 0:
+        channelResponse = np.pad(channelResponse, (0, num_zeros), 'constant')
+
+    response_frequency = np.fft.fft(channelResponse)
+    shape2 = response_frequency.shape
+    equalized_signal = np.array([symbol / response_frequency for symbol in signal])
+    return equalized_signal
+
+def estimate(signal, pilot_symbol):
+    # az átvitel a signal[0] és a pilot_symbol "hányadosa"
+    # H = Y / U = signal[0] / pilot_symbol
+    # U = Y / H
+    transfer_function = signal[0] / pilot_symbol
+    estimated_signal = np.array([symbol / transfer_function for symbol in signal])
+    return estimated_signal
 
 
 def demapping(QAM):
@@ -115,8 +127,6 @@ def demapping(QAM):
     demapped_bits = np.empty((num_rows, num_cols * 2), dtype=int)
     for i in range(num_rows):
         returned = demap_one(QAM[i]).reshape(-1)
-        shape1 = returned.shape
-        shape2 = demapped_bits[i].shape
         demapped_bits[i] = returned
     return np.array(demapped_bits).reshape(-1, 2)
 
@@ -164,11 +174,12 @@ def calculateBER(bits, bits_received):
 
 carrierNo = 128
 mu = 2
-# channelResponse = np.array([1])
+channelNoResponse = np.array([1])
 channelResponse = np.array([math.sqrt(9), math.sqrt(1)])
 data_pairs = []
 
 for x in range(11):
+    #TODO: mainnek ilyen függvény dictionaryvel, hogy egymás után lehessen futtatni
     SNRdB = x
     calculated_bitNo = calculateBITno(theoreticalBER(SNRdB))
     OFDMsymbolNo = calculateOFDMsymbolNo(
@@ -181,26 +192,69 @@ for x in range(11):
     signal_time = IFFT(symbols_frequency)
     signal_time_withCP = addCP(signal_time)
     OFDM_tx = signal_time_withCP.reshape(-1)
-    OFDM_rx = channel(OFDM_tx, SNRdB, channelResponse)
-    OFDM_equalized = equalize(OFDM_rx, channelResponse)
-    # OFDM_equalized = OFDM_rx
-    OFDM_equalized = OFDM_equalized.reshape(-1, carrierNo + 10)
-    OFDM_noCP = removeCP(OFDM_equalized)
+    data_entry = []
+    
+    # simulation without channel
+    OFDM_rx = channel(OFDM_tx, SNRdB, channelNoResponse)
+    OFDM_rx = OFDM_rx.reshape(-1, carrierNo + 10)
+    OFDM_noCP = removeCP(OFDM_rx)
     OFDM_frequency = FFT(OFDM_noCP)
     OFDM_demapped = demapping(OFDM_frequency)
     bits_received = PS(OFDM_demapped)
-    BitErrorRate = calculateBER(bits, bits_received)
-    data_pairs.append((SNRdB, BitErrorRate))
-    print("SNRdB: ", SNRdB, "Bit Error Rate: ", BitErrorRate)
+    BitErrorRate_nochannel = calculateBER(bits, bits_received)
+    data_entry.extend([SNRdB, BitErrorRate_nochannel])
+
+    # simulation with channel
+    OFDM_rx = channel(OFDM_tx, SNRdB, channelResponse)
+    OFDM_rx = OFDM_rx.reshape(-1, carrierNo + 10)
+    OFDM_noCP = removeCP(OFDM_rx)
+    OFDM_frequency = FFT(OFDM_noCP)
+    OFDM_demapped = demapping(OFDM_frequency)
+    bits_received = PS(OFDM_demapped)
+    BitErrorRate_channel = calculateBER(bits, bits_received)
+    data_entry.extend([BitErrorRate_channel])
+
+    #simulation with channel and equalization
+    OFDM_rx = channel(OFDM_tx, SNRdB, channelResponse)
+    OFDM_rx = OFDM_rx.reshape(-1, carrierNo + 10)
+    OFDM_noCP = removeCP(OFDM_rx)
+    OFDM_frequency = FFT(OFDM_noCP)
+    OFDM_equalized = equalize(OFDM_frequency, channelResponse)
+    OFDM_demapped = demapping(OFDM_equalized)
+    bits_received = PS(OFDM_demapped)
+    BitErrorRate_equalized = calculateBER(bits, bits_received)
+    data_entry.extend([BitErrorRate_equalized])
+
+    #simulation with channel and estimation
+    OFDM_rx = channel(OFDM_tx, SNRdB, channelResponse)
+    OFDM_rx = OFDM_rx.reshape(-1, carrierNo + 10)
+    OFDM_noCP = removeCP(OFDM_rx)
+    OFDM_frequency = FFT(OFDM_noCP)
+    # egyszerűség kedvéért az első szimbólum ismert lesz a vevő számára,
+    # egy preamble szimbólum hozáadásával lehetne ezt helyettesíteni
+    pilot_symbol = symbols_frequency[0]
+    OFDM_equalized = estimate(OFDM_frequency, pilot_symbol)
+    OFDM_demapped = demapping(OFDM_equalized)
+    bits_received = PS(OFDM_demapped)
+    BitErrorRate_estimated = calculateBER(bits, bits_received)
+    data_entry.extend([BitErrorRate_estimated])
+
+    # print(data_entry)
+    data_pairs.append(data_entry)
+    print("SNRdB:", SNRdB, "Bit Error Rates:", BitErrorRate_nochannel, BitErrorRate_channel, BitErrorRate_equalized, BitErrorRate_estimated)
 
 print(data_pairs)
-plt.plot(*zip(*data_pairs))
-plt.semilogy()
-plt.xlabel("SNR (in dB)")
-plt.ylabel("Bit Error Rate")
-plt.title("Bit Error Rate Simulation of an OFDM System with QPSK modulation")
-plt.suptitle("Frequency Dependent Channel, Equalized")
-plt.grid(True, linestyle="--", linewidth=0.5, color="gray", alpha=0.5)
-plt.savefig("simulatedBER_equalized.png", bbox_inches="tight")
-plt.show()
-plt.close()
+
+# Specify the file name
+file_name = 'output.csv'
+
+# Writing the list to a CSV file
+with open(file_name, 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+    writer.writerows(data_pairs)
+
+print(f"The list has been written to '{file_name}' successfully.")
+
+
+
+# TODO: IMSC pontokért vektorizálás
