@@ -30,4 +30,17 @@ Szóval:
 - Ki kell számolni, hogy ez hány OFDM szimbólumot jelent
 - Ennyi OFDM szimbólumot kell generálni
 - Az időtartománybeli reprezentációba be kell szúrni a CP-t
+- A vett időtartománybeli jelet fel kell osztani OFDM szimbólumokra, hogy eltávolíthassuk a CP-t
+- És OFDM szimbólumonként kell végezni az FFT-t, demodulálást és PS átalakítást.
 
+## Csatornakompenzáció
+
+Miután helyesen implementáltam a frekvenciafüggő csatornát az additív fehér zaj mellé,
+a következő feladatom az volt, hogy vessem össze a következő csatornakompenzálási lehetőségeket:
+- Nincs kompenzáció
+- h[k] ismeretében kompenzálás
+- Csatornamérés
+
+## Futásidő optimalizálása
+
+Az utolsó feladatom IMSc pontok megszerzéséért a futásidő javítása volt. Az alapállítás az volt, hogy a for ciklus és a list comprehension lassú, ezért a lehető legtöbb lépést vektor-, és mátrixműveletekkel helyettesítettem.
