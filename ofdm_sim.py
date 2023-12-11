@@ -10,7 +10,7 @@ def theoreticalBER(EbNodB):
 
 
 def calculateBITno(theoreticalBER):
-    return pow(10, -np.log10(theoreticalBER) + 2.2)
+    return pow(10, -np.log10(theoreticalBER) + 2)
 
 
 def calculateSymbolNo(bitNo, mu):
@@ -33,37 +33,26 @@ def SP(bits):
 
 
 def mapping(bits_SP):
-    mapping_table = {
-        (0, 0): -1 - 1j,
-        (0, 1): -1 + 1j,
-        (1, 0): +1 - 1j,
-        (1, 1): +1 + 1j,
-    }
-    symbols = np.array([mapping_table[tuple(pair)] for pair in bits_SP])
-    # TODO: mindegyik x2 - 1 és akkor az amplitúdó
+    symbols = bits_SP*2 - 1
+    symbols = symbols.dot([1, 1j])
     return symbols
 
 
 def IFFT(symbols_frequency):
-    num_rows, num_cols = symbols_frequency.shape
-    ifft_results = np.empty_like(symbols_frequency, dtype=complex)
+    ifft_results = np.fft.ifft(symbols_frequency, axis=1)
+    return ifft_results
 
-    for i in range(num_rows):
-        subarray = symbols_frequency[i]  # Access each subarray
-        ifft_result = np.fft.ifft(subarray)  # Apply IFFT to the subarray
-        ifft_results[i] = ifft_result
-    signal_time = ifft_results
-    return signal_time
 
 
 def addCP(signal_time, CP=10):
-    num_rows, num_cols = signal_time.shape
-    signal_time_withCP = np.empty((num_rows, num_cols + CP), dtype=complex)
+    # Select the last 2 columns
+    prefix = signal_time[:, -CP:]
 
-    for i in range(num_rows):
-        prefix = np.array(signal_time[i, -CP:])
-        signal_time_withCP[i] = np.concatenate((prefix, signal_time[i]))
+    # Select all the original columns
+    original = signal_time[:, :]
 
+    # Concatenate the last 2 columns with the original columns
+    signal_time_withCP = np.concatenate((prefix, original), axis=1)
     return signal_time_withCP
 
 
@@ -77,27 +66,18 @@ def channel(signal, SNRdB, channelResponse):
     noise_real = np.sqrt(sigma2) / 2 * np.random.randn(*output_signal.shape)
     noise_imaginary = np.sqrt(sigma2) / 2 * 1j * np.random.randn(*output_signal.shape)
     noise = noise_real + noise_imaginary
+
     # return output_signal
     return output_signal + noise
 
 
 def removeCP(signal_time_withCP, CP=10):
-    num_rows, num_cols = signal_time_withCP.shape
-    signal_time = np.empty((num_rows, num_cols - CP), dtype=complex)
-
-    for i in range(num_rows):
-        signal_time[i] = np.array(signal_time_withCP[i, CP:])
+    signal_time = signal_time_withCP[:, CP:]
     return signal_time
 
 
 def FFT(signal_time):
-    num_rows, num_cols = signal_time.shape
-    fft_results = np.empty_like(signal_time, dtype=complex)
-
-    for i in range(num_rows):
-        subarray = signal_time[i]  # Access each subarray
-        fft_result = np.fft.fft(subarray)  # Apply FFT to the subarray
-        fft_results[i] = fft_result
+    fft_results = np.fft.fft(signal_time, axis=1)
     return fft_results
 
 def equalize(signal, channelResponse):
@@ -122,60 +102,74 @@ def estimate(signal, pilot_symbol):
 
 
 def demapping(QAM):
-    num_rows, num_cols = QAM.shape
-
-    demapped_bits = np.empty((num_rows, num_cols * 2), dtype=int)
-    for i in range(num_rows):
-        returned = demap_one(QAM[i]).reshape(-1)
-        demapped_bits[i] = returned
-    return np.array(demapped_bits).reshape(-1, 2)
-
-def demap_one(symbol):
-    # print("QAM", symbol)
-    # print("QAM type", type(symbol))
-
     demapping_table = {
         (-1 - 1j): (0, 0),
         (-1 + 1j): (0, 1),
         (+1 - 1j): (1, 0),
         (+1 + 1j): (1, 1),
     }
-    # szimbólumok tömbje
     constellation = np.array([x for x in demapping_table.keys()])
 
-    # a legközelebbi pontokhoz tartozó távolságok megkaphatók a komplex számok
-    # különbségeként ami vektorokként szemléletes
-    diff_vectors = symbol.reshape((-1, 1)) - constellation.reshape((1, -1))
-    dists = abs(diff_vectors)
+    num_rows, num_cols = QAM.shape
+    # QAM = QAM.reshape((8, 128))
 
-    # megkeressük a legkisebb távolságok indexeit
-    const_index = dists.argmin(axis=1)
+    # Call the modified demap_qpsk function
+    demapped_bits = demap_qpsk(QAM, constellation, demapping_table)
 
-    # helyettesítjük a vett konstellációkat a "helyes" konstellációkkal
-    decision = constellation[const_index]
+    # Reshape the received bit pairs into the original shape of symbols
+    demapped_bits = demapped_bits.reshape(-1, 2)
+    return demapped_bits
 
-    # a vett konstellációkat a bitpárokra cseréljük
-    received = np.vstack([demapping_table[C] for C in decision])
+def demap_qpsk(symbols, constellation, demapping_table):
+    # Reshape symbols and constellation for broadcasting
+    symbols = symbols.reshape(*symbols.shape, 1)
+    constellation = constellation.reshape(1, 1, -1)
+
+    # Calculate the distance from each received symbol to each constellation point
+    dists = np.abs(symbols - constellation)
+
+    # Find the index of the closest constellation point for each received symbol
+    const_index = dists.argmin(axis=-1)
+
+    # Replace the received symbols with the corresponding constellation points
+    decision = constellation[0, 0, const_index]
+
+    # Replace the constellation points with their corresponding bit pairs
+    received = np.array([demapping_table[C] for C in decision.flatten()])#.reshape(*symbols.shape)
+
     return received
+
+
+#TODO: 
+def demap_one_v2(symbol):
+    shape = symbol.shape
+    real = symbol.real
+    imaginary = symbol.imag
+    # symbol = np.array([real, imaginary]).reshape(-1, 2) 
+    # symbol = symbol.dot([1, 1/1j])
+    real = np.sign(real)
+    imaginary = np.sign(imaginary)
+    symbol = np.array([real, imaginary]).reshape(-1, 2)
+    # +1 / 2
+    symbol = symbol + 1
+    symbol = symbol / 2
+    symbol = symbol - 0.5
+    symbol = np.sign(symbol)
+    return symbol
 
 def PS(bits_parallel):
     # bits = [b for a in bits_parallel for b in a]
     return bits_parallel.reshape((-1,))
 
 def calculateBER(bits, bits_received):
-    error = 0
-    array_sent = np.array(bits)
-    array_received = np.array(bits_received)
-    for i in range(len(array_sent)):
-        if array_sent[i] != array_received[i]:
-            error += 1
+    error = np.sum(bits != bits_received)
     return error / len(bits)
 
 
 carrierNo = 128
 mu = 2
 channelNoResponse = np.array([1])
-channelResponse = np.array([math.sqrt(9), math.sqrt(1)])
+channelResponse = np.array([math.sqrt(0.05), math.sqrt(0.95)])
 data_pairs = []
 
 for x in range(11):
@@ -238,10 +232,10 @@ for x in range(11):
     bits_received = PS(OFDM_demapped)
     BitErrorRate_estimated = calculateBER(bits, bits_received)
     data_entry.extend([BitErrorRate_estimated])
+    data_entry.extend([theoreticalBER(SNRdB)])
 
-    # print(data_entry)
     data_pairs.append(data_entry)
-    print("SNRdB:", SNRdB, "Bit Error Rates:", BitErrorRate_nochannel, BitErrorRate_channel, BitErrorRate_equalized, BitErrorRate_estimated)
+    print("SNRdB:", SNRdB, "Bit Error Rates:", BitErrorRate_nochannel, BitErrorRate_channel, BitErrorRate_equalized, BitErrorRate_estimated, theoreticalBER(SNRdB))
 
 print(data_pairs)
 
@@ -256,5 +250,3 @@ with open(file_name, 'w', newline='') as csvfile:
 print(f"The list has been written to '{file_name}' successfully.")
 
 
-
-# TODO: IMSC pontokért vektorizálás
